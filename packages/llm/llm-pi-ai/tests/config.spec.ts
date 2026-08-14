@@ -35,6 +35,14 @@ describe('reasoning schema boundary', () => {
   it('rejects a thinking format outside the offered set', () => {
     expect(configWith({ compat: { thinkingFormat: 'quantum' } })).toThrow(/expected/)
   })
+
+  it('accepts and materializes supportsDeveloperRole', () => {
+    type Materialized = { providers: Record<string, { models?: { compat?: { supportsDeveloperRole?: unknown } }[] }> }
+    const materialized = configWith({ compat: { supportsDeveloperRole: false } })() as Materialized
+    expect(materialized.providers['acme-gateway']?.models?.[0]?.compat?.supportsDeveloperRole).toBe(false)
+    // The switch is boolean-only: a non-boolean value fails validation.
+    expect(configWith({ compat: { supportsDeveloperRole: 'yes' } })).toThrow(/expected/)
+  })
 })
 
 describe('modality schema boundary', () => {

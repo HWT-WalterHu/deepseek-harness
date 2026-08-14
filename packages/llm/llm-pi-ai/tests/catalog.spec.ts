@@ -779,6 +779,52 @@ describe('reasoning-dispatch compat switches', () => {
     expect(models.get('dialect-odd')?.compat).toEqual({ thinkingFormat: 'openai', supportsReasoningEffort: false })
   })
 
+  it('pins supportsDeveloperRole at the route and per model', () => {
+    const models = modelsOf({
+      'acme-gateway': {
+        api: 'openai-completions',
+        baseURL: 'https://acme.test',
+        compat: { supportsDeveloperRole: false },
+        models: [
+          { id: 'gateway-default', reasoningEfforts: { off: null, high: 'high' } },
+          { id: 'gateway-odd', compat: { supportsDeveloperRole: true } },
+        ],
+      },
+    }, 'acme-gateway')
+
+    // Route-level pin lands on models that do not override it…
+    expect(models.get('gateway-default')?.compat).toEqual({ supportsDeveloperRole: false })
+    // …and the per-model switch wins for the one that does.
+    expect(models.get('gateway-odd')?.compat).toEqual({ supportsDeveloperRole: true })
+  })
+
+  it('keeps reasoning dispatch intact when supportsDeveloperRole is pinned false', () => {
+    const models = modelsOf({
+      'acme-gateway': {
+        api: 'openai-completions',
+        baseURL: 'https://acme.test',
+        compat: { supportsDeveloperRole: false },
+        models: [{ id: 'reasoning-model', reasoningEfforts: { off: null, high: 'high', max: 'max' } }],
+      },
+    }, 'acme-gateway')
+
+    const model = models.get('reasoning-model')
+    // The reasoning metadata is untouched: only the system-role choice changes.
+    expect(model?.reasoning).toBe(true)
+    expect(model?.thinkingLevelMap).toEqual({ off: null, minimal: null, low: null, medium: null, high: 'high', xhigh: null, max: 'max' })
+    expect(model?.compat).toEqual({ supportsDeveloperRole: false })
+  })
+
+  it('rejects supportsDeveloperRole on a non-openai-completions model', () => {
+    expect(() => modelsOf({
+      'acme-anthropic': {
+        api: 'anthropic-messages',
+        baseURL: 'https://acme.test',
+        models: [{ id: 'm', compat: { supportsDeveloperRole: false } }],
+      },
+    }, 'acme-anthropic')).toThrow(/supportsDeveloperRole/)
+  })
+
   it('merges the switches over the catalog entry’s own compat instead of replacing it', () => {
     const [catalogModel] = getBuiltinModels('deepseek')
     if (catalogModel === undefined) throw new Error('the installed catalog ships no deepseek model')
